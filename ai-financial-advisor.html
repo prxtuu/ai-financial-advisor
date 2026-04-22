@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Financial Advisor & Robo-Planner</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        warmbg: '#FAF9F6',
+                        warmtext: '#2D2A26',
+                        accentteal: '#0F766E',
+                        accenttealhover: '#0D645D',
+                        accentgold: '#B45309',
+                        cardbg: '#FFFFFF',
+                        bordergray: '#E5E7EB'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: theme('colors.warmbg'); color: theme('colors.warmtext'); }
+        
+        .chart-container {
+            position: relative; width: 100%; max-width: 800px;
+            margin: 0 auto; height: 350px; max-height: 400px;
+        }
+        @media (max-width: 768px) { .chart-container { height: 250px; } }
+
+        .nav-item { cursor: pointer; transition: all 0.2s; }
+        .nav-item:hover { background-color: #F3F4F6; }
+        .nav-active { border-left: 4px solid theme('colors.accentteal'); background-color: #F0FDF4; font-weight: 600; color: theme('colors.accentteal'); }
+        
+        .view-section { display: none; animation: fadeIn 0.4s ease-in-out; }
+        .view-active { display: block; }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        input[type=range] { accent-color: theme('colors.accentteal'); }
+        
+        .loader {
+            border: 4px solid #f3f3f3; border-top: 4px solid theme('colors.accentteal');
+            border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite;
+            display: none; margin: 20px auto;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .prose strong { font-weight: 600; color: theme('colors.accentteal'); }
+        .prose ul { list-style-type: disc; padding-left: 1.5rem; margin-top: 0.5rem; margin-bottom: 0.5rem; }
+        .prose li { margin-bottom: 0.25rem; }
+    </style>
+</head>
+<body class="antialiased flex h-screen overflow-hidden">
+
+    <!-- Chosen Palette: Warm Neutrals with Teal (Trust/Finance) and Gold (Caution/Attention) Accents -->
+    <!-- Application Structure Plan: A full web application layout with a persistent side navigation (bottom nav on mobile) mapping to the core features: Explainer (AI), Calculators (Math Engine), Education (Modules), and Compare (Logic Engine). This structure immediately exposes all functional aspects without requiring deep scrolling, optimizing for task completion. -->
+    <!-- Visualization & Content Choices:
+         1. T&C Explainer -> Goal: Inform -> Presentation: Text Area + Output Panel -> Interaction: API Fetch, Mic Input, Audio Play -> Justification: Core MVP feature, needs high visibility and easy interaction -> Method: Vanilla JS (Web Speech API, Fetch API).
+         2. Calculators -> Goal: Compare/Inform -> Presentation: Sliders + Line/Doughnut Charts -> Interaction: Real-time update on slider drag -> Justification: Visualizing compound interest and debt clearly -> Method: Chart.js (NO SVG).
+         3. Education Modules -> Goal: Inform -> Presentation: Expandable Cards -> Interaction: Click to reveal -> Justification: Prevents overwhelming users with text -> Method: HTML/JS.
+         4. Comparison Engine -> Goal: Compare/Relationships -> Presentation: Bubble Chart -> Interaction: Hover for details -> Justification: Best way to visualize Risk vs. Return simultaneously -> Method: Chart.js Bubble Plot (NO SVG).
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+
+    <nav class="w-64 bg-cardbg border-r border-bordergray flex-shrink-0 hidden md:flex flex-col h-full z-20 shadow-sm">
+        <div class="p-6 border-b border-bordergray">
+            <h1 class="text-xl font-bold text-accentteal">◆ AI Advisor</h1>
+            <p class="text-xs text-gray-500 mt-1">Financial Education Platform</p>
+        </div>
+        <div class="flex-1 overflow-y-auto py-4">
+            <ul class="space-y-1">
+                <li><div class="nav-item nav-active px-6 py-3" data-target="view-explainer"><span>📄</span> <span class="ml-2">T&C Explainer</span></div></li>
+                <li><div class="nav-item px-6 py-3" data-target="view-calculators"><span>🧮</span> <span class="ml-2">Calculators</span></div></li>
+                <li><div class="nav-item px-6 py-3" data-target="view-compare"><span>⚖️</span> <span class="ml-2">Compare Risks</span></div></li>
+                <li><div class="nav-item px-6 py-3" data-target="view-education"><span>🏛️</span> <span class="ml-2">Learn</span></div></li>
+            </ul>
+        </div>
+        <div class="p-4 border-t border-bordergray text-xs text-gray-400 text-center">
+            Educational purposes only. Not financial advice.
+        </div>
+    </nav>
+
+    <div class="md:hidden fixed bottom-0 left-0 w-full bg-cardbg border-t border-bordergray flex justify-around p-3 z-50 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+        <div class="nav-item nav-active flex flex-col items-center text-xs" data-target="view-explainer"><span class="text-xl">📄</span><span>AI</span></div>
+        <div class="nav-item flex flex-col items-center text-xs" data-target="view-calculators"><span class="text-xl">🧮</span><span>Calc</span></div>
+        <div class="nav-item flex flex-col items-center text-xs" data-target="view-compare"><span class="text-xl">⚖️</span><span>Compare</span></div>
+        <div class="nav-item flex flex-col items-center text-xs" data-target="view-education"><span class="text-xl">🏛️</span><span>Learn</span></div>
+    </div>
+
+    <main class="flex-1 h-full overflow-y-auto bg-warmbg p-4 md:p-8 pb-24 md:pb-8">
+        <div class="max-w-5xl mx-auto">
+
+            <section id="view-explainer" class="view-section view-active">
+                <div class="mb-6">
+                    <h2 class="text-3xl font-bold">Multilingual T&C Explainer</h2>
+                    <p class="text-gray-600 mt-2">Paste complex terms and conditions below. Our AI will summarize the key points, hidden fees, and risks in your preferred language.</p>
+                </div>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-cardbg rounded-xl shadow-sm border border-bordergray p-6 flex flex-col">
+                        <label class="font-semibold mb-2 flex justify-between items-center">
+                            <span>Input Legal Text</span>
+                            <button id="btn-mic" class="text-gray-500 hover:text-accentteal" title="Dictate Text">
+                                <span>🎙️</span> Dictate
+                            </button>
+                        </label>
+                        <textarea id="tc-input" class="w-full h-48 p-3 border border-bordergray rounded-lg focus:outline-none focus:ring-2 focus:ring-accentteal resize-none bg-gray-50 text-sm" placeholder="Paste your loan agreement, mutual fund terms, or property contract here..."></textarea>
+                        
+                        <div class="mt-4 flex gap-4">
+                            <div class="flex-1">
+                                <label class="block text-xs font-semibold text-gray-500 mb-1">Comfort Language</label>
+                                <select id="tc-lang" class="w-full p-2 border border-bordergray rounded-md bg-white text-sm">
+                                    <option value="English">English</option>
+                                    <option value="Hindi">Hindi</option>
+                                    <option value="Spanish">Spanish</option>
+                                    <option value="Kannada">Kannada</option>
+                                    <option value="Tamil">Tamil</option>
+                                </select>
+                            </div>
+                            <div class="flex items-end">
+                                <button id="btn-analyze" class="bg-accentteal hover:bg-accenttealhover text-white px-6 py-2 rounded-md font-semibold transition-colors shadow-sm">
+                                    Analyze
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-cardbg rounded-xl shadow-sm border border-bordergray p-6 flex flex-col">
+                        <div class="flex justify-between items-center mb-4 pb-2 border-b border-bordergray">
+                            <h3 class="font-semibold">AI Breakdown</h3>
+                            <button id="btn-read" class="text-accentteal hover:text-accenttealhover hidden" title="Read Aloud">
+                                <span>🔊</span> Read Aloud
+                            </button>
+                        </div>
+                        
+                        <div id="loader" class="loader"></div>
+                        
+                        <div id="tc-output" class="flex-1 overflow-y-auto prose text-sm text-gray-700">
+                            <div class="flex flex-col items-center justify-center h-full text-gray-400 text-center">
+                                <span class="text-4xl mb-3">🤖</span>
+                                <p>Awaiting text to analyze.<br>The summary will appear here.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="view-calculators" class="view-section">
+                <div class="mb-6 flex justify-between items-end">
+                    <div>
+                        <h2 class="text-3xl font-bold">Financial Calculators</h2>
+                        <p class="text-gray-600 mt-2">Visualize compound interest growth or understand the true cost of debt.</p>
+                    </div>
+                    <div class="flex bg-gray-200 rounded-lg p-1">
+                        <button id="tab-sip" class="px-4 py-1 rounded-md bg-white shadow-sm font-semibold text-sm">SIP/Investment</button>
+                        <button id="tab-loan" class="px-4 py-1 rounded-md text-gray-600 hover:text-gray-900 font-semibold text-sm">Loan/EMI</button>
+                    </div>
+                </div>
+
+                <div id="calc-sip" class="bg-cardbg rounded-xl shadow-sm border border-bordergray p-6">
+                    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                        <div class="lg:col-span-4 space-y-6">
+                            <div>
+                                <label class="block text-sm font-semibold mb-2 flex justify-between">Monthly Investment (₹) <span id="val-monthly" class="text-accentteal font-bold">10,000</span></label>
+                                <input type="range" id="input-monthly" min="500" max="100000" step="500" value="10000" class="w-full">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold mb-2 flex justify-between">Expected Return Rate (%) <span id="val-rate" class="text-accentteal font-bold">12%</span></label>
+                                <input type="range" id="input-rate" min="1" max="30" step="1" value="12" class="w-full">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold mb-2 flex justify-between">Time Period (Years) <span id="val-years" class="text-accentteal font-bold">10</span></label>
+                                <input type="range" id="input-years" min="1" max="40" step="1" value="10" class="w-full">
+                            </div>
+                            <div class="bg-warmbg p-4 rounded-lg border border-bordergray">
+                                <div class="flex justify-between mb-2"><span class="text-sm text-gray-500">Total Invested</span> <span class="font-semibold" id="res-invested">₹12,00,000</span></div>
+                                <div class="flex justify-between mb-2"><span class="text-sm text-gray-500">Est. Returns</span> <span class="font-semibold text-green-600" id="res-returns">₹11,23,391</span></div>
+                                <div class="flex justify-between pt-2 border-t border-bordergray"><span class="font-semibold text-gray-700">Total Value</span> <span class="text-xl font-bold text-accentteal" id="res-total">₹23,23,391</span></div>
+                            </div>
+                        </div>
+                        <div class="lg:col-span-8">
+                            <div class="chart-container"><canvas id="sipChart"></canvas></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="calc-loan" class="bg-cardbg rounded-xl shadow-sm border border-bordergray p-6 hidden">
+                    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                        <div class="lg:col-span-4 space-y-6">
+                            <div>
+                                <label class="block text-sm font-semibold mb-2 flex justify-between">Loan Amount (₹) <span id="val-loan-amt" class="text-accentgold font-bold">10,00,000</span></label>
+                                <input type="range" id="input-loan-amt" min="50000" max="50000000" step="50000" value="1000000" class="w-full">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold mb-2 flex justify-between">Interest Rate (%) <span id="val-loan-rate" class="text-accentgold font-bold">9.5%</span></label>
+                                <input type="range" id="input-loan-rate" min="1" max="25" step="0.1" value="9.5" class="w-full">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold mb-2 flex justify-between">Loan Tenure (Years) <span id="val-loan-years" class="text-accentgold font-bold">15</span></label>
+                                <input type="range" id="input-loan-years" min="1" max="30" step="1" value="15" class="w-full">
+                            </div>
+                            <div class="bg-warmbg p-4 rounded-lg border border-bordergray">
+                                <div class="flex justify-between mb-2"><span class="text-sm text-gray-500">Monthly EMI</span> <span class="font-bold text-lg text-red-600" id="res-emi">₹10,442</span></div>
+                                <div class="flex justify-between mb-2"><span class="text-sm text-gray-500">Total Interest</span> <span class="font-semibold text-accentgold" id="res-loan-int">₹8,79,604</span></div>
+                                <div class="flex justify-between pt-2 border-t border-bordergray"><span class="font-semibold text-gray-700">Total Payment</span> <span class="text-xl font-bold" id="res-loan-total">₹18,79,604</span></div>
+                            </div>
+                            <button id="btn-loan-roadmap" class="mt-4 w-full bg-accentteal hover:bg-accenttealhover text-white py-2 rounded-md font-semibold transition-colors text-sm shadow-sm flex items-center justify-center gap-2">
+                                <span>🤖</span> Generate AI Repayment Roadmap
+                            </button>
+                            <div id="loan-roadmap-output" class="hidden mt-2"></div>
+                        </div>
+                        <div class="lg:col-span-8 flex justify-center items-center">
+                            <div class="w-full max-w-sm"><canvas id="loanChart"></canvas></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="view-compare" class="view-section">
+                <div class="mb-6">
+                    <h2 class="text-3xl font-bold">Risk vs. Reward Engine</h2>
+                    <p class="text-gray-600 mt-2">An interactive comparison of various financial instruments. Hover over the bubbles to see details. Higher on the graph means more potential profit; further right means higher risk of loss.</p>
+                </div>
+                
+                <div class="bg-cardbg rounded-xl shadow-sm border border-bordergray p-6">
+                    <div class="chart-container" style="height: 500px; max-height: 500px; max-width: 100%;">
+                        <canvas id="compareChart"></canvas>
+                    </div>
+                    <div class="mt-4 p-4 bg-yellow-50 rounded-lg text-sm text-yellow-800 border border-yellow-200">
+                        <span class="font-bold">Important Notice:</span> This matrix is generalized for educational purposes. Past performance is not indicative of future results. Wholesale marketing and direct equity carry significant risk of capital loss.
+                    </div>
+                </div>
+            </section>
+
+            <section id="view-education" class="view-section">
+                <div class="mb-6">
+                    <h2 class="text-3xl font-bold">Educational Modules</h2>
+                    <p class="text-gray-600 mt-2">Learn the mechanics of different ways to generate wealth before you invest.</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div class="bg-cardbg border border-bordergray rounded-xl p-5 hover:shadow-md transition-shadow cursor-pointer edu-card" onclick="toggleEdu(this)">
+                        <div class="text-3xl mb-3">🏢</div>
+                        <h3 class="font-bold text-lg mb-2">Property Investment</h3>
+                        <p class="text-sm text-gray-600 mb-3 line-clamp-2">Real estate involves buying land or buildings to earn rental income or sell for a profit.</p>
+                        <div class="hidden edu-detail mt-4 pt-4 border-t border-bordergray text-sm text-gray-700 space-y-2">
+                            <p><strong>Pros:</strong> Tangible asset, potential for regular rental income, historical appreciation.</p>
+                            <p><strong>Cons:</strong> Highly illiquid (hard to sell fast), requires large capital/loans, ongoing maintenance costs.</p>
+                            <p><strong>Risk Level:</strong> Medium to High (depending on leverage).</p>
+                            <button class="btn-edu-ai mt-3 text-accentteal font-semibold text-xs hover:underline flex items-center gap-1" data-topic="Property Investment" data-output="edu-out-prop"><span>✨</span> Ask AI to explain further</button>
+                            <div id="edu-out-prop" class="hidden"></div>
+                        </div>
+                    </div>
+
+                    <div class="bg-cardbg border border-bordergray rounded-xl p-5 hover:shadow-md transition-shadow cursor-pointer edu-card" onclick="toggleEdu(this)">
+                        <div class="text-3xl mb-3">🔄</div>
+                        <h3 class="font-bold text-lg mb-2">Bank SWP & SIP</h3>
+                        <p class="text-sm text-gray-600 mb-3 line-clamp-2">Systematic Investment (SIP) and Withdrawal Plans (SWP) automate your cash flow.</p>
+                        <div class="hidden edu-detail mt-4 pt-4 border-t border-bordergray text-sm text-gray-700 space-y-2">
+                            <p><strong>SIP:</strong> Regularly investing a fixed amount to average out market volatility.</p>
+                            <p><strong>SWP:</strong> Regularly withdrawing a fixed amount from a lump sum investment (like a pension).</p>
+                            <p><strong>Risk Level:</strong> Varies heavily based on the underlying mutual fund chosen.</p>
+                            <button class="btn-edu-ai mt-3 text-accentteal font-semibold text-xs hover:underline flex items-center gap-1" data-topic="Systematic Investment Plans (SIP) and SWP" data-output="edu-out-sip"><span>✨</span> Ask AI to explain further</button>
+                            <div id="edu-out-sip" class="hidden"></div>
+                        </div>
+                    </div>
+
+                    <div class="bg-cardbg border border-bordergray rounded-xl p-5 hover:shadow-md transition-shadow cursor-pointer edu-card" onclick="toggleEdu(this)">
+                        <div class="text-3xl mb-3">📈</div>
+                        <h3 class="font-bold text-lg mb-2">Company Shares & ETFs</h3>
+                        <p class="text-sm text-gray-600 mb-3 line-clamp-2">Buying a piece of a company (Shares) or a basket of many companies (Exchange Traded Funds).</p>
+                        <div class="hidden edu-detail mt-4 pt-4 border-t border-bordergray text-sm text-gray-700 space-y-2">
+                            <p><strong>Shares:</strong> High risk, high reward. If the company fails, you lose money.</p>
+                            <p><strong>ETFs:</strong> Lower risk than individual shares because it diversifies across an entire index (e.g., top 50 companies).</p>
+                            <p><strong>Risk Level:</strong> Medium (ETFs) to Very High (Individual small-cap shares).</p>
+                            <button class="btn-edu-ai mt-3 text-accentteal font-semibold text-xs hover:underline flex items-center gap-1" data-topic="Company Shares and ETFs" data-output="edu-out-shares"><span>✨</span> Ask AI to explain further</button>
+                            <div id="edu-out-shares" class="hidden"></div>
+                        </div>
+                    </div>
+
+                    <div class="bg-cardbg border border-bordergray rounded-xl p-5 hover:shadow-md transition-shadow cursor-pointer edu-card" onclick="toggleEdu(this)">
+                        <div class="text-3xl mb-3">📦</div>
+                        <h3 class="font-bold text-lg mb-2">Wholesale Business</h3>
+                        <p class="text-sm text-gray-600 mb-3 line-clamp-2">Buying goods in bulk at a discount to sell to retailers or directly to consumers.</p>
+                        <div class="hidden edu-detail mt-4 pt-4 border-t border-bordergray text-sm text-gray-700 space-y-2">
+                            <p><strong>Pros:</strong> Total control over the business, potentially massive profit margins.</p>
+                            <p><strong>Cons:</strong> Requires inventory management, logistics, intense market research, and high active effort.</p>
+                            <p><strong>Risk Level:</strong> Very High (requires specialized knowledge to succeed).</p>
+                            <button class="btn-edu-ai mt-3 text-accentteal font-semibold text-xs hover:underline flex items-center gap-1" data-topic="Wholesale Business Marketing" data-output="edu-out-whole"><span>✨</span> Ask AI to explain further</button>
+                            <div id="edu-out-whole" class="hidden"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <script>
+        // --- Navigation Logic ---
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('nav-active'));
+                const targetId = e.currentTarget.getAttribute('data-target');
+                
+                document.querySelectorAll(`[data-target="${targetId}"]`).forEach(nav => nav.classList.add('nav-active'));
+                document.querySelectorAll('.view-section').forEach(sec => sec.classList.remove('view-active'));
+                
+                document.getElementById(targetId).classList.add('view-active');
+            });
+        });
+
+        // --- Education Cards Logic ---
+        function toggleEdu(element) {
+            const detail = element.querySelector('.edu-detail');
+            const desc = element.querySelector('.line-clamp-2');
+            if(detail.classList.contains('hidden')) {
+                detail.classList.remove('hidden');
+                desc.classList.remove('line-clamp-2');
+                element.classList.add('ring-2', 'ring-accentteal');
+            } else {
+                detail.classList.add('hidden');
+                desc.classList.add('line-clamp-2');
+                element.classList.remove('ring-2', 'ring-accentteal');
+            }
+        }
+
+        // --- Calculator Sub-tabs ---
+        document.getElementById('tab-sip').addEventListener('click', () => {
+            document.getElementById('calc-sip').classList.remove('hidden');
+            document.getElementById('calc-loan').classList.add('hidden');
+            document.getElementById('tab-sip').classList.add('bg-white', 'shadow-sm');
+            document.getElementById('tab-sip').classList.remove('text-gray-600');
+            document.getElementById('tab-loan').classList.add('text-gray-600');
+            document.getElementById('tab-loan').classList.remove('bg-white', 'shadow-sm');
+        });
+        document.getElementById('tab-loan').addEventListener('click', () => {
+            document.getElementById('calc-loan').classList.remove('hidden');
+            document.getElementById('calc-sip').classList.add('hidden');
+            document.getElementById('tab-loan').classList.add('bg-white', 'shadow-sm');
+            document.getElementById('tab-loan').classList.remove('text-gray-600');
+            document.getElementById('tab-sip').classList.add('text-gray-600');
+            document.getElementById('tab-sip').classList.remove('bg-white', 'shadow-sm');
+        });
+
+        // --- Formatting Utils ---
+        function formatCurrency(num) { return '₹' + Math.round(num).toLocaleString('en-IN'); }
+
+        // --- SIP Calculator Logic & Chart ---
+        const sipState = { monthly: 10000, rate: 12, years: 10 };
+        let sipChart = null;
+
+        function initSipChart() {
+            const ctx = document.getElementById('sipChart').getContext('2d');
+            sipChart = new Chart(ctx, {
+                type: 'line',
+                data: { labels: [], datasets: [
+                    { label: 'Total Value', data: [], borderColor: '#0F766E', backgroundColor: 'rgba(15, 118, 110, 0.1)', borderWidth: 3, fill: true, tension: 0.4 },
+                    { label: 'Amount Invested', data: [], borderColor: '#9CA3AF', borderWidth: 2, borderDash: [5, 5], fill: false, tension: 0.1 }
+                ]},
+                options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { tooltip: { callbacks: { label: function(c) { return c.dataset.label + ': ' + formatCurrency(c.parsed.y); } } } } }
+            });
+        }
+
+        function calculateSIP() {
+            const p = sipState.monthly; const r = (sipState.rate / 100) / 12; const t = sipState.years * 12;
+            let labels = [], totalData = [], investedData = [];
+            
+            for (let y = 1; y <= sipState.years; y++) {
+                labels.push('Year ' + y);
+                let m = y * 12;
+                let invested = p * m;
+                let futureValue = r === 0 ? invested : p * (((Math.pow(1 + r, m) - 1)) / r) * (1 + r);
+                investedData.push(invested);
+                totalData.push(futureValue);
+            }
+            const finalVal = totalData[totalData.length - 1] || 0;
+            const finalInv = investedData[investedData.length - 1] || 0;
+            
+            document.getElementById('res-invested').textContent = formatCurrency(finalInv);
+            document.getElementById('res-returns').textContent = formatCurrency(finalVal - finalInv);
+            document.getElementById('res-total').textContent = formatCurrency(finalVal);
+
+            if(sipChart) {
+                sipChart.data.labels = labels;
+                sipChart.data.datasets[0].data = totalData;
+                sipChart.data.datasets[1].data = investedData;
+                sipChart.update();
+            }
+        }
+
+        ['monthly', 'rate', 'years'].forEach(id => {
+            const input = document.getElementById(`input-${id}`);
+            input.addEventListener('input', (e) => {
+                sipState[id] = parseFloat(e.target.value);
+                const display = document.getElementById(`val-${id}`);
+                if(id === 'monthly') display.textContent = formatCurrency(sipState[id]).replace('₹', '');
+                if(id === 'rate') display.textContent = sipState[id] + '%';
+                if(id === 'years') display.textContent = sipState[id];
+                calculateSIP();
+            });
+        });
+
+        // --- Loan Calculator Logic & Chart ---
+        const loanState = { amt: 1000000, rate: 9.5, years: 15 };
+        let loanChart = null;
+
+        function initLoanChart() {
+            const ctx = document.getElementById('loanChart').getContext('2d');
+            loanChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: { labels: ['Principal Amount', 'Total Interest'], datasets: [{ data: [1, 1], backgroundColor: ['#E5E7EB', '#B45309'], borderWidth: 0 }] },
+                options: { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { position: 'bottom' } } }
+            });
+        }
+
+        function calculateLoan() {
+            const p = loanState.amt; const r = (loanState.rate / 100) / 12; const n = loanState.years * 12;
+            let emi = 0;
+            if(r === 0) { emi = p / n; } 
+            else { emi = (p * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1); }
+            
+            const totalPayment = emi * n;
+            const totalInterest = totalPayment - p;
+
+            document.getElementById('res-emi').textContent = formatCurrency(emi);
+            document.getElementById('res-loan-int').textContent = formatCurrency(totalInterest);
+            document.getElementById('res-loan-total').textContent = formatCurrency(totalPayment);
+
+            if(loanChart) {
+                loanChart.data.datasets[0].data = [p, totalInterest];
+                loanChart.update();
+            }
+        }
+
+        ['amt', 'rate', 'years'].forEach(id => {
+            const input = document.getElementById(`input-loan-${id}`);
+            input.addEventListener('input', (e) => {
+                loanState[id] = parseFloat(e.target.value);
+                const display = document.getElementById(`val-loan-${id}`);
+                if(id === 'amt') display.textContent = formatCurrency(loanState[id]).replace('₹', '');
+                if(id === 'rate') display.textContent = loanState[id] + '%';
+                if(id === 'years') display.textContent = loanState[id];
+                calculateLoan();
+            });
+        });
+
+        // --- Comparison Bubble Chart Engine ---
+        function initCompareChart() {
+            const ctx = document.getElementById('compareChart').getContext('2d');
+            const dataSets = [
+                { label: 'Govt Bonds', data: [{x: 1.5, y: 7.2, r: 15}], backgroundColor: '#0ea5e9' },
+                { label: 'Fixed Deposits', data: [{x: 2, y: 6.8, r: 25}], backgroundColor: '#38bdf8' },
+                { label: 'Large Cap ETFs', data: [{x: 5, y: 12, r: 20}], backgroundColor: '#0F766E' },
+                { label: 'Small Cap MFs', data: [{x: 7.5, y: 16, r: 12}], backgroundColor: '#f59e0b' },
+                { label: 'Direct Company Shares', data: [{x: 8.5, y: 15, r: 10}], backgroundColor: '#ef4444' },
+                { label: 'Property (Leased)', data: [{x: 4, y: 9, r: 30}], backgroundColor: '#8b5cf6' },
+                { label: 'Wholesale Marketing', data: [{x: 9, y: 22, r: 8}], backgroundColor: '#dc2626' }
+            ];
+
+            new Chart(ctx, {
+                type: 'bubble',
+                data: { datasets: dataSets },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    scales: {
+                        x: { title: { display: true, text: 'Risk Level (1 = Low, 10 = Very High)' }, min: 0, max: 10 },
+                        y: { title: { display: true, text: 'Expected Annual Return (%)' }, min: 0, max: 25 }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.dataset.label + ': ' + context.parsed.y + '% Return at Risk Level ' + context.parsed.x;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // --- AI Explainer Logic (Gemini API Integration) ---
+        const apiKey = ""; // Injected by execution environment
+
+        function parseMarkdown(md) {
+            let html = md.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            html = html.replace(/^\* (.*$)/gim, '<li>$1</li>');
+            html = html.replace(/<li>(.*?)<\/li>/gs, '<ul>$&</ul>');
+            html = html.replace(/<\/ul>\n<ul>/g, '\n');
+            html = html.replace(/\n\n/g, '<br><br>');
+            return html;
+        }
+
+        async function fetchWithRetry(url, options, maxRetries = 5) {
+            const delays = [1000, 2000, 4000, 8000, 16000];
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    const res = await fetch(url, options);
+                    if (!res.ok) throw new Error(`Status: ${res.status}`);
+                    return await res.json();
+                } catch (e) {
+                    if (i === maxRetries - 1) throw e;
+                    await new Promise(r => setTimeout(r, delays[i]));
+                }
+            }
+        }
+
+        let currentResponseText = "";
+
+        // --- New Helper for Dynamic AI Generations (Roadmap & Education) ---
+        async function generateAIResponse(prompt, systemInstruction, containerId, fallbackText) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '<div class="loader" style="display:block; margin: 10px auto;"></div><p class="text-center text-xs text-gray-500 mt-2">AI is thinking...</p>';
+            container.classList.remove('hidden');
+
+            try {
+                let responseText = "";
+                if (!apiKey) {
+                    await new Promise(r => setTimeout(r, 1500));
+                    responseText = fallbackText;
+                } else {
+                    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+                    const payload = {
+                        contents: [{ parts: [{ text: prompt }] }],
+                        systemInstruction: { parts: [{ text: systemInstruction }] }
+                    };
+                    const data = await fetchWithRetry(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || "No response generated.";
+                }
+                container.innerHTML = `<div class="p-4 mt-3 bg-[#F0FDF4] border border-[#BBF7D0] rounded-lg text-sm text-gray-700 prose">${parseMarkdown(responseText)}</div>`;
+            } catch (error) {
+                container.innerHTML = `<div class="text-red-500 p-3 mt-3 bg-red-50 rounded text-sm">Error generating response. Please try again.</div>`;
+                console.error(error);
+            }
+        }
+
+        document.getElementById('btn-analyze').addEventListener('click', async () => {
+            const text = document.getElementById('tc-input').value.trim();
+            const lang = document.getElementById('tc-lang').value;
+            const outputArea = document.getElementById('tc-output');
+            const loader = document.getElementById('loader');
+            const btnRead = document.getElementById('btn-read');
+
+            if (!text) {
+                outputArea.innerHTML = `<div class="text-red-500 font-semibold p-4 bg-red-50 rounded">Please paste some text to analyze.</div>`;
+                return;
+            }
+
+            outputArea.innerHTML = '';
+            loader.style.display = 'block';
+            btnRead.classList.add('hidden');
+
+            const systemInstruction = "You are a financial educational assistant. Summarize the provided Terms & Conditions. Focus strictly on explaining hidden fees, penalties, and RISKS. Do not provide personalized advice. Format with bullet points.";
+            const userPrompt = `Translate and summarize this text clearly in ${lang}:\n\n${text}`;
+
+            try {
+                let responseText = "";
+                if (!apiKey) {
+                    // Fallback simulation if no API key is provided
+                    await new Promise(r => setTimeout(r, 1500));
+                    responseText = `**Educational Summary (${lang}):**\n\n* **Risk Warning:** This document implies that your capital is at risk and returns are not guaranteed.\n* **Fees:** There may be hidden management fees associated with early withdrawal.\n* **Obligations:** You are required to maintain a minimum balance to avoid penalties.\n\n*Disclaimer: Always read the full document. This is an AI summary.*`;
+                } else {
+                    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+                    const payload = {
+                        contents: [{ parts: [{ text: userPrompt }] }],
+                        systemInstruction: { parts: [{ text: systemInstruction }] }
+                    };
+                    const data = await fetchWithRetry(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || "No response generated.";
+                }
+
+                currentResponseText = responseText;
+                loader.style.display = 'none';
+                outputArea.innerHTML = `<div class="p-4 bg-[#F0FDF4] border border-[#BBF7D0] rounded-lg">${parseMarkdown(responseText)}</div>`;
+                btnRead.classList.remove('hidden');
+
+            } catch (error) {
+                loader.style.display = 'none';
+                outputArea.innerHTML = `<div class="text-red-500 p-4 bg-red-50 rounded">Error analyzing text. Please try again.</div>`;
+                console.error(error);
+            }
+        });
+
+        // --- Voice Features (Web Speech API) ---
+        
+        // 1. Text to Speech
+        document.getElementById('btn-read').addEventListener('click', () => {
+            if (!currentResponseText) return;
+            const langMap = { 'English': 'en-US', 'Hindi': 'hi-IN', 'Spanish': 'es-ES' }; // Basic mapping
+            const selectedLang = document.getElementById('tc-lang').value;
+            
+            // Strip markdown for reading
+            const cleanText = currentResponseText.replace(/\*/g, '').replace(/#/g, '');
+            
+            const utterance = new SpeechSynthesisUtterance(cleanText);
+            utterance.lang = langMap[selectedLang] || 'en-US';
+            window.speechSynthesis.cancel(); // Stop current
+            window.speechSynthesis.speak(utterance);
+        });
+
+        // 2. Speech to Text
+        document.getElementById('btn-mic').addEventListener('click', () => {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                alert("Sorry, your browser doesn't support speech recognition.");
+                return;
+            }
+            const recognition = new SpeechRecognition();
+            const btn = document.getElementById('btn-mic');
+            const inputArea = document.getElementById('tc-input');
+            
+            recognition.onstart = function() {
+                btn.innerHTML = '<span class="animate-pulse text-red-500">🔴</span> Listening...';
+            };
+            
+            recognition.onspeechend = function() {
+                recognition.stop();
+                btn.innerHTML = '<span>🎙️</span> Dictate';
+            };
+            
+            recognition.onresult = function(event) {
+                const transcript = event.results[0][0].transcript;
+                inputArea.value += (inputArea.value ? ' ' : '') + transcript;
+            };
+
+            recognition.start();
+        });
+
+        // Initialize App
+        window.onload = () => {
+            initSipChart(); calculateSIP();
+            initLoanChart(); calculateLoan();
+            initCompareChart();
+            
+            // Loan Roadmap AI Trigger
+            document.getElementById('btn-loan-roadmap').addEventListener('click', () => {
+                const emi = document.getElementById('res-emi').textContent;
+                const total = document.getElementById('res-loan-total').textContent;
+                const prompt = `I am taking a loan of ₹${loanState.amt} at ${loanState.rate}% interest for ${loanState.years} years. My EMI is ${emi} and total payment is ${total}. Give me a short, practical 3-step roadmap to repay this efficiently and avoid debt traps.`;
+                const sysInstruct = "You are a helpful financial advisor. Provide a brief, bulleted repayment strategy. Keep it under 150 words.";
+                const fallback = "**AI Repayment Roadmap:**\n\n* **Step 1: Automate Payments.** Set up auto-debit for your EMI of " + emi + " to avoid late fees.\n* **Step 2: Annual Prepayment.** Try to pay 1 extra EMI every year to significantly reduce your principal.\n* **Step 3: Emergency Fund.** Ensure you have 3-6 months of EMIs saved up in case of job loss.\n\n*This is an educational simulation. Implement API key for real responses.*";
+                generateAIResponse(prompt, sysInstruct, 'loan-roadmap-output', fallback);
+            });
+
+            // Education AI Triggers
+            document.querySelectorAll('.btn-edu-ai').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation(); // Prevent the parent card from toggling closed
+                    const topic = e.currentTarget.getAttribute('data-topic');
+                    const outId = e.currentTarget.getAttribute('data-output');
+                    const prompt = `Explain the concept of "${topic}" to a beginner in simple terms. Highlight the primary way to make money and the biggest risk involved. Keep it under 3 short bullet points.`;
+                    const sysInstruct = "You are a financial educator. Explain concepts simply and objectively. Always include risk warnings.";
+                    const fallback = `**Understanding ${topic}:**\n\n* **The Basics:** This is a method of deploying capital with the expectation of generating profit or income.\n* **How it makes money:** Through capital appreciation or regular dividend/interest yields over time.\n* **The Risk:** Market volatility and potential loss of principal if not managed properly.\n\n*This is an educational simulation. Implement API key for real responses.*`;
+                    
+                    generateAIResponse(prompt, sysInstruct, outId, fallback);
+                    e.currentTarget.style.display = 'none'; // Hide the button after clicking
+                });
+            });
+        };
+
+    </script>
+</body>
+</html>
